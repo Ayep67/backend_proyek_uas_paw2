@@ -1,0 +1,36 @@
+http://localhost:5000/produk
+{ 
+    "nama": "Kopi Susu",
+    "kategori": "Kopi",
+    "deskripsi": "Kopi yang agak manis campuran susu",
+    "harga": "20000",
+    "stok": "100",
+    "gambar":""
+}
+
+http://localhost:5000/pesanan
+{
+  "items": [
+    {
+      "produk": "id_produk",
+      "namaProduk": "Kopi Susu",
+      "harga": 15000,
+      "jumlah": 1
+    }
+  ],
+  "subtotal": 15000,
+  "biayapengiriman": "5000",
+  "metodeAntar": "pickup",
+  "alamat": "jalan jeruk",
+  "metodePembayaran": "bank"
+}
+
+http://localhost:5000/login dan http://localhost:5000/register untuk customer
+{
+  "nama": "arief",
+  "email": "arief67@gmail.com",
+  "password": "arief12345",
+  "noTelp": "0812345678910",
+  "alamat": "Jalan in aja dulu",
+  "avatar": ""
+}
