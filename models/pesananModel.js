@@ -9,8 +9,8 @@ const pesananItemSchema = new mongoose.Schema({
 }, { _id: false });
 
 const pesananSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  namaUser: { type: String, required: true },
+  idUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  namaUser: { type: String, required: true, lowercase: true },
   items: { type: [pesananItemSchema], required: true, validate: v => v.length > 0 },
   subtotal: { type: Number, required: true, min: 0 },
   biayaPengiriman: { type: Number, required: true, min: 0, default: 0 },
