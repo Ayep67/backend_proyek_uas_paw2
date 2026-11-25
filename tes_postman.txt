@@ -36,3 +36,11 @@ http://localhost:5000/login dan http://localhost:5000/register untuk customer
 }
 
 npm run buat-admin -- "arief" "arief67@gmail.com" "admin123"
+
+http://localhost:5000/auth/login
+{
+  "nama": "arief",
+  "email": "arief67@gmail.com",
+  "password": "admin123"
+}
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDY3N2RmYzM1MjRlNjk2MmQxZTUxOCIsIm5hbWEiOiJhcmllZiIsImVtYWlsIjoiYXJpZWY2N0BnbWFpbC5jb20iLCJub1RlbHAiOiIiLCJhbGFtYXQiOiIiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3OTU1ODYwOTMsImV4cCI6MTc5NTU4OTY5M30.H1UTtIroawyAdgMmw0u2rNK4JkvW-46SVVWCy1XvH1c
