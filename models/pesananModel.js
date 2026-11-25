@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
 
 const pesananItemSchema = new mongoose.Schema({
-  produk: { type: mongoose.Schema.Types.ObjectId, ref: 'Produk', required: true },
+  idProduk: { type: mongoose.Schema.Types.ObjectId, ref: 'Produk', required: true },
   namaProduk: { type: String, required: true },
   harga: { type: Number, required: true, min: 0 },
-  jumlah: { type: Number, required: true, min: 1 },
+  jumlah: { type: Number, required: true, min: 1, default: 1 },
   catatan: { type: String, trim: true, default: '' },
 }, { _id: false });
 

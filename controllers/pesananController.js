@@ -1,4 +1,5 @@
 const Pesanan = require('../models/pesananModel');
+const Produk = require('../models/produkModel');
 const mongoose = require('mongoose');
 const { errorHttp } = require('../middlewares/errorHandler');
 
@@ -64,6 +65,56 @@ function biayaDariBody(body) {
     : body.biayaPengiriman;
 }
 
+async function buatItemsPesanan(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw errorHttp(400, 'items harus berupa array dan tidak boleh kosong');
+  }
+
+  const idProdukList = [];
+  for (const item of items) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw errorHttp(400, 'Setiap items harus berupa object');
+    }
+    if (!item.idProduk) {
+      throw errorHttp(400, 'Setiap items wajib memiliki idProduk');
+    }
+    if (!mongoose.Types.ObjectId.isValid(item.idProduk)) {
+      throw errorHttp(400, 'idProduk tidak valid');
+    }
+    idProdukList.push(String(item.idProduk));
+  }
+
+  const produkUnik = await Produk.find({
+    _id: { $in: [...new Set(idProdukList)] },
+  });
+  const produkMap = new Map(produkUnik.map((produk) => [String(produk._id), produk]));
+
+  let subtotal = 0;
+  const itemsPesanan = items.map((item) => {
+    const idProduk = String(item.idProduk);
+    const produk = produkMap.get(idProduk);
+    if (!produk) {
+      throw errorHttp(404, `Produk tidak ditemukan: ${idProduk}`);
+    }
+
+    const jumlah = item.jumlah === undefined ? 1 : Number(item.jumlah);
+    if (!Number.isInteger(jumlah) || jumlah < 1) {
+      throw errorHttp(400, 'jumlah harus berupa bilangan bulat minimal 1');
+    }
+
+    subtotal += produk.harga * jumlah;
+    return {
+      idProduk: produk._id,
+      namaProduk: produk.nama,
+      harga: produk.harga,
+      jumlah,
+      catatan: typeof item.catatan === 'string' ? item.catatan : '',
+    };
+  });
+
+  return { itemsPesanan, subtotal };
+}
+
 exports.create = async (req, res) => {
   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
     throw errorHttp(400, 'Body pesanan harus berupa object JSON');
@@ -72,29 +123,24 @@ exports.create = async (req, res) => {
     throw errorHttp(400, 'Status pesanan ditentukan otomatis saat pesanan dibuat');
   }
 
+  const { itemsPesanan, subtotal } = await buatItemsPesanan(req.body.items);
   const biayaInput = biayaDariBody(req.body);
-  const { subtotal, biayaPengiriman, total } = hitungRincianPesanan(
-    req.body.subtotal,
+  const rincian = hitungRincianPesanan(
+    subtotal,
     biayaInput === undefined ? 0 : biayaInput
   );
 
-  try {
-    const pesanan = await Pesanan.create({
-      idUser: req.user.id,
-      namaUser: req.user.nama,
-      items: req.body.items,
-      subtotal,
-      biayaPengiriman,
-      total,
-      metodeAntar: req.body.metodeAntar,
-      alamat: req.body.alamat || req.user.alamat,
-      metodePembayaran: req.body.metodePembayaran,
-      eWallet: req.body.eWallet,
-    });
-    res.status(201).json(pesanan);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
+  const pesanan = await Pesanan.create({
+    idUser: req.user.id,
+    namaUser: req.user.nama,
+    items: itemsPesanan,
+    ...rincian,
+    metodeAntar: req.body.metodeAntar,
+    alamat: req.body.alamat || req.user.alamat,
+    metodePembayaran: req.body.metodePembayaran,
+    eWallet: req.body.eWallet,
+  });
+  res.status(201).json(pesanan);
 };
 
 exports.getAll = async (req, res) => {
@@ -105,7 +151,7 @@ exports.getAll = async (req, res) => {
   if (req.query.produk) {
     const produk = String(req.query.produk);
     if (mongoose.Types.ObjectId.isValid(produk)) {
-      filter['items.produk'] = produk;
+      filter['items.idProduk'] = produk;
     } else {
       filter['items.namaProduk'] = { $regex: produk, $options: 'i' };
     }
@@ -139,7 +185,7 @@ exports.getAll = async (req, res) => {
     .limit(limit);
 
   query.populate('idUser', 'nama email noTelp alamat');
-  query.populate('items.produk', 'nama kategori harga');
+  query.populate('items.idProduk', 'nama kategori harga');
 
   const [data, total] = await Promise.all([query, Pesanan.countDocuments(filter)]);
 
@@ -155,7 +201,7 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   const data = await Pesanan.findById(req.params.id)
     .populate('idUser', 'nama email noTelp alamat')
-    .populate('items.produk', 'nama kategori harga');
+    .populate('items.idProduk', 'nama kategori harga');
   if (!data) throw errorHttp(404, 'Data tidak ditemukan');
   res.json(tampilkanDenganTotal(data));
 };
@@ -163,7 +209,7 @@ exports.getById = async (req, res) => {
 exports.getByUser = async (req, res) => {
   const data = await Pesanan.find({ idUser: req.params.idUser })
     .populate('idUser', 'nama email noTelp alamat')
-    .populate('items.produk', 'nama kategori harga');
+    .populate('items.idProduk', 'nama kategori harga');
   res.json(data.map(tampilkanDenganTotal));
 };
 
@@ -175,7 +221,13 @@ exports.update = async (req, res) => {
   const pesanan = await Pesanan.findById(req.params.id);
   if (!pesanan) throw errorHttp(404, 'Data tidak ditemukan');
 
-  const subtotalInput = req.body.subtotal === undefined ? pesanan.subtotal : req.body.subtotal;
+  let itemsUpdate;
+  let subtotalInput = pesanan.subtotal;
+  if (req.body.items !== undefined) {
+    const hasilItems = await buatItemsPesanan(req.body.items);
+    itemsUpdate = hasilItems.itemsPesanan;
+    subtotalInput = hasilItems.subtotal;
+  }
   const biayaInput = biayaDariBody(req.body);
   const biayaPengirimanInput = biayaInput === undefined ? pesanan.biayaPengiriman : biayaInput;
   const { subtotal, biayaPengiriman, total } = hitungRincianPesanan(
@@ -183,6 +235,7 @@ exports.update = async (req, res) => {
     biayaPengirimanInput
   );
   const perubahan = { ...req.body, subtotal, biayaPengiriman, total };
+  if (itemsUpdate) perubahan.items = itemsUpdate;
   delete perubahan.biayapengiriman;
 
   const data = await Pesanan.findByIdAndUpdate(
