@@ -34,3 +34,5 @@ http://localhost:5000/login dan http://localhost:5000/register untuk customer
   "alamat": "Jalan in aja dulu",
   "avatar": ""
 }
+
+npm run buat-admin -- "arief" "arief67@gmail.com" "admin123"
